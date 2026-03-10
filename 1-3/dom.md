@@ -3,7 +3,7 @@
 | №   | Вопрос                                                                                                                                         |
 |-----|------------------------------------------------------------------------------------------------------------------------------------------------|
 | 1   | [Система координат](#система-координат)     
-| 2   | [Система координат](#система-координат)     
+| 2   | [Event bubbling и Event capturing](#event-bubbling-и-event-capturing)     
 
 ---
 
@@ -121,3 +121,95 @@ element.scrollIntoView({
 ``scrollTo`` - позволяет точно указать координаты прокрутки.
 
 ``scrollIntoView`` - удобнее, так как не нужно вычислять координаты вручную, и он автоматически прокручивает к элементу.
+
+---
+
+# Event bubbling и Event capturing
+В DOM дереве все события проходят 3 фазы.
+  1. Погружение (capturing phase) – событие сначала идёт сверху вниз.
+  2. Фаза целевая. событие достигло целевого(исходного) элемента.
+  3. Всплытие (bubbling stage) - событие пошло вверх по элемента. событие двигается от `event.target` вверх к корню документа, по пути вызывая обработчики, поставленные через on<event> и addEventListener без третьего аргумента или с третьим аргументом равным false.
+![alt text](image-5.png)
+
+> Чтобы перехватывать события при погружении, надо в ``addEventListener`` передать вторым аргументом true. Сокращение для
+`{capturing: true}`.
+```js
+elem.addEventListener(..., {capture: true})
+// или просто "true", как сокращение для {capture: true}
+elem.addEventListener(..., true)
+```
+## Отличие event.target от event.currentTarget
+- `event.target` – целевой элемент. не изменяется. самый глубокий элемент, на котором произошло событие. Т.е например если событие `click`,  то элемент, на который фактически кликнули.
+- `event.currentTarget (this)` - изменяется. элемент, на котором в данный момент сработал обработчик (тот, на котором «висит» конкретный обработчик)
+
+## Что такое делегирование DOM событий? Как и в каких случаях этим пользоваться?
+Если у нас есть много одинаковых элементов, события на которых нужно обработать одинаково, то можно просто навесить обработчик на их родителя, а не вешать на каждый.
+> Делегирование DOM-событий - это подход, когда вешается один обработчик не на каждый дочерний элемент отдельно, а на их общего предка, и потом внутри обработчика определяется, по какому именно элементу произошло событие.
+Так, например, в React вешается один обработчик на рутовый элемент.
+
+**Делегирование почти всегда использует фазу всплытия (bubbling)**.
+
+Зачем нужно:
+ - Вместо 1000 addEventListener на 1000 кнопок - один обработчик на контейнер. меньше когда
+ - Удобно для списков, таблиц, меню
+ ```html
+ <ul id="todos">
+  <li data-id="1"><button class="remove">Удалить</button></li>
+  <li data-id="2"><button class="remove">Удалить</button></li>
+</ul>
+
+<script>
+  const todos = document.getElementById('todos');
+
+todos.addEventListener('click', (event) => {
+  const removeBtn = event.target.closest('.remove');
+  if (!removeBtn) return;
+
+  const item = removeBtn.closest('li');
+  if (!item) return;
+
+  console.log('Удаляем item', item.dataset.id);
+  item.remove();
+</script>
+ ```
+ - Элементы создаются динамически (Например, чат, todo list, infinite scroll, результаты поиска.)
+
+ ```js
+ <!doctype html>
+<body>
+<div id="menu">
+  <button data-action="save">Сохранить</button>
+  <button data-action="load">Загрузить</button>
+  <button data-action="search">Поиск</button>
+</div>
+
+<script>
+  class Menu {
+    constructor(elem) {
+      elem.onclick = this.onClick.bind(this); // (*)
+    }
+
+    save() {
+      alert('сохраняю');
+    }
+
+    load() {
+      alert('загружаю');
+    }
+
+    search() {
+      alert('ищу');
+    }
+
+    onClick(event) {
+      let action = event.target.dataset.action;
+      if (action) {
+        this[action]();
+      }
+    }
+  }
+
+  new Menu(menu);
+</script>
+</body>
+ ```
